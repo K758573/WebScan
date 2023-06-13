@@ -1,0 +1,5 @@
+FILE(GLOB SRC_FILES *.cpp)
+add_library(utils ${SRC_FILES})
+target_link_libraries(utils PRIVATE Urlmon)
+find_package(unofficial-gumbo CONFIG REQUIRED)
+target_link_libraries(utils PRIVATE unofficial::gumbo::gumbo)
