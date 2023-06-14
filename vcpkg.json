@@ -5,5 +5,11 @@
   "dependencies" : [ {
     "name" : "gumbo",
     "version>=" : "0.10.1#6"
+  }, {
+    "name" : "asio",
+    "version>=" : "1.24.0#1"
+  }, {
+    "name" : "curlpp",
+    "version>=" : "2018-06-15#7"
   } ]
 }
