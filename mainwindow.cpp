@@ -43,7 +43,7 @@ void MainWindow::initUrlData()
                    QString::fromStdString(Utils::downloadUrlToString(ui->edit_line_url->text().toStdString())));
   auto it = new QStandardItem(ui->edit_line_url->text());
   model->setItem(0, 0, it);
-  auto temp = Html::searchForLinks(url_pages[root_url].toStdString());
+  auto temp = Html::extractLinks(url_pages[root_url].toStdString());
   QList<QStandardItem *> temp_list;
   for (const auto &item: temp) {
     QString url = QString::fromStdString(item);

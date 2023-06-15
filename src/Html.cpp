@@ -2,35 +2,122 @@
 // Created by Shiro on 2023/6/13.
 //
 
+#include <cassert>
 #include "Html.h"
 #include "gumbo.h"
 
-void searchForLinksHelper(GumboNode *node, std::vector <std::string> &url_lists)
+const std::string Form::CONTENT_TYPE = "application/x-www-form-urlencoded";
+
+void searchForLinksHelper(GumboNode *node, std::vector<std::string> &url_lists)
 {
   if (node->type != GUMBO_NODE_ELEMENT) {
     return;
   }
-  GumboAttribute* href;
-  if (node->v.element.tag == GUMBO_TAG_A &&
-      (href = gumbo_get_attribute(&node->v.element.attributes, "href"))) {
-    std::string temp(href->value);
-    if (temp!="#") {
-      url_lists.emplace_back(href->value);
+  GumboAttribute *href;
+  if (node->v.element.tag == GUMBO_TAG_A) {
+    href = gumbo_get_attribute(&node->v.element.attributes, "href");
+    if (href != nullptr) {
+      std::string temp(href->value);
+      if (temp != "#") {
+        url_lists.emplace_back(href->value);
+      }
     }
   }
-  
-  GumboVector* children = &node->v.element.children;
+  GumboVector *children = &node->v.element.children;
   for (unsigned int i = 0; i < children->length; ++i) {
-    searchForLinksHelper(static_cast<GumboNode *>(children->data[i]),url_lists);
+    searchForLinksHelper(static_cast<GumboNode *>(children->data[i]), url_lists);
   }
 }
 
-std::vector<std::string> Html::searchForLinks(const std::string& raw_html)
+std::vector<std::string> Html::extractLinks(const std::string &html)
 {
-  auto output = gumbo_parse(raw_html.c_str());
+  //转为DOM树
+  auto output = gumbo_parse(html.c_str());
   std::vector<std::string> url_lists;
-  searchForLinksHelper(output->root,url_lists);
+  searchForLinksHelper(output->root, url_lists);
   gumbo_destroy_output(&kGumboDefaultOptions, output);
   return url_lists;
+}
+
+void extractFormInputHelper(GumboNode *node, std::vector<GumboNode *> &inputs)
+{
+  if (node->type != GUMBO_NODE_ELEMENT) {
+    return;
+  }
+  if (node->v.element.tag == GUMBO_TAG_INPUT || node->v.element.tag == GUMBO_TAG_SELECT) {
+    inputs.push_back(node);
+    return;
+  }
+  auto sub_nodes = &node->v.element.children;
+  for (int i = 0; i < sub_nodes->length; ++i) {
+    auto sub_node = (GumboNode *) sub_nodes->data[i];
+    extractFormInputHelper(sub_node, inputs);
+  }
+}
+
+/**
+ * 提取节点中的 \<input> 标签
+ * @param node
+ * @return
+ */
+std::vector<GumboNode *> extractFormInput(GumboNode *node)
+{
+  std::vector<GumboNode *> inputs;
+  extractFormInputHelper(node, inputs);
+  return inputs;
+}
+
+void extractFormArgs(GumboNode *form_node, std::vector<Form> &forms)
+{
+  Form form;
+  assert(form_node->type == GUMBO_NODE_ELEMENT);
+  //提取参数，填充表单
+  auto method = gumbo_get_attribute(&form_node->v.element.attributes, "method");
+  auto action = gumbo_get_attribute(&form_node->v.element.attributes, "action");
+  form.action = action == nullptr ? "" : action->value;
+  form.method = method == nullptr ? "" : method->value;
+  //遍历子节点，找input标签
+  auto root_children = &form_node->v.document.children;
+  for (int i = 0; i < root_children->length; ++i) {
+    auto childs = extractFormInput((GumboNode *) root_children->data[i]);
+    for (const auto &child: childs) {
+      auto name = gumbo_get_attribute(&child->v.element.attributes, "name");
+      auto value = gumbo_get_attribute(&child->v.element.attributes, "value");
+      if (name != nullptr) {
+        form.args[name->value] = "";
+        if (value != nullptr) {
+          form.args[name->value] = value->value;
+        }
+      }
+    }
+  }
+  forms.push_back(form);
+}
+
+
+void extractFormNodes(GumboNode *node, std::vector<Form> &forms)
+{
+  //查找form标签
+  if (node->type != GUMBO_NODE_ELEMENT)
+    return;
+  if (node->v.element.tag == GUMBO_TAG_FORM) {
+    //提取form标签
+    extractFormArgs(node, forms);
+    //form的子标签不能是form
+    return;
+  }
+  //子节点查找form标签
+  GumboVector *children = &node->v.element.children;
+  for (unsigned int i = 0; i < children->length; ++i) {
+    extractFormNodes(static_cast<GumboNode *>(children->data[i]), forms);
+  }
+}
+
+std::vector<Form> Html::extractForms(const std::string &html)
+{
+  auto output = gumbo_parse(html.c_str());
+  std::vector<Form> forms;
+  extractFormNodes(output->root, forms);
+  return forms;
 }
 
