@@ -16,7 +16,7 @@ find_package(Qt6 REQUIRED COMPONENTS
 find_package(unofficial-curlpp CONFIG REQUIRED)
 
 add_subdirectory(src)
-add_executable(WebScan main.cpp mainwindow.cpp mainwindow.ui)
+add_executable(WebScan main.cpp mainwindow.cpp mainwindow.ui formwindow.cpp formwindow.ui)
 add_executable(test test.cpp)
 target_link_libraries(WebScan PRIVATE utils Qt::Gui Qt::Core Qt::Widgets Qt::WebEngineWidgets)
 target_link_libraries(test PRIVATE unofficial::curlpp::curlpp utils Qt::Gui Qt::Core Qt::Widgets Qt::WebEngineWidgets Qt::Network)

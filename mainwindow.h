@@ -6,6 +6,9 @@
 #define WEBSCAN_MAINWINDOW_H
 
 #include <QMainWindow>
+#include "formwindow.h"
+#include "src/Utils.h"
+#include "src/Html.h"
 
 QT_BEGIN_NAMESPACE
 namespace Ui { class MainWindow; }
@@ -14,18 +17,28 @@ QT_END_NAMESPACE
 class MainWindow :
     public QMainWindow
 {
-  Q_OBJECT
+Q_OBJECT
 
 public:
   explicit MainWindow(QWidget *parent = nullptr);
   
   ~MainWindow() override;
+
+signals:
+  
+  void sendFormData(QVector<Form> forms);
+
 private:
   void initUrlData();
+
+
 private:
   Ui::MainWindow *ui;
-  QMap<QUrl,QString> url_pages;
+  QMap<QUrl, QString> url_pages;
+  QMap<QUrl, QVector<Form>> url_forms;
+  QString current_url;
   QString root_url;
+  FormWindow *form_window;
 };
 
 

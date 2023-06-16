@@ -41,6 +41,7 @@ public:
    */
   static std::vector<Form> extractForms(const std::string& html);
   
+  static std::string httpRequest(const Form &form);
 };
 
 

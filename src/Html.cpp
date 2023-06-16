@@ -3,8 +3,13 @@
 //
 
 #include <cassert>
+#include <curlpp/Easy.hpp>
+#include <curlpp/cURLpp.hpp>
+#include <curlpp/Options.hpp>
+#include <sstream>
 #include "Html.h"
 #include "gumbo.h"
+
 
 const std::string Form::CONTENT_TYPE = "application/x-www-form-urlencoded";
 
@@ -119,5 +124,29 @@ std::vector<Form> Html::extractForms(const std::string &html)
   std::vector<Form> forms;
   extractFormNodes(output->root, forms);
   return forms;
+}
+
+std::string Html::httpRequest(const Form &form)
+{
+  std::string url = form.action;
+  std::stringstream answer;
+  std::string data;
+  curlpp::Cleanup cleanup;
+  curlpp::Easy request;
+  for (const auto &it: form.args) {
+    data.append(it.first).append("=").append(it.second).push_back('&');
+  }
+  if (data.ends_with('&')) {
+    data.erase(data.end()-1,data.end());
+  }
+  if (form.method == "get") {
+    url.append("?").append(data);
+  } else if (form.method == "post") {
+    request.setOpt(curlpp::options::PostFields(data));
+  }
+  request.setOpt(new curlpp::options::Url(url));
+  request.setOpt(curlpp::options::WriteStream(&answer));
+  request.perform();
+  return answer.str();
 }
 
