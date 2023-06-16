@@ -17,8 +17,9 @@ class Form
 public:
   static const std::string CONTENT_TYPE;
   std::string method;
-  std::unordered_map<std::string, std::string> args;
   std::string action;
+  std::unordered_map<std::string, std::string> args;
+  
 };
 
 

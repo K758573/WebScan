@@ -4,30 +4,44 @@
 #include "src/Utils.h"
 #include "src/Html.h"
 #include <iostream>
-#include <QNetworkAccessManager>
+#include <sstream>
+#include <curlpp/cURLpp.hpp>
+#include <curlpp/Easy.hpp>
+#include <curlpp/Options.hpp>
+#include <curlpp/Exception.hpp>
+
+static std::string httpSubmit(std::string url, const Form &form)
+{
+  url = form.action;
+  std::stringstream answer;
+  std::string data;
+  curlpp::Cleanup cleanup;
+  curlpp::Easy request;
+  for (const auto &it: form.args) {
+    data.append(it.first).append("=").append(it.second).push_back('&');
+  }
+  if (data.ends_with('&')) {
+    data.erase(data.end()-1,data.end());
+  }
+  if (form.method == "get") {
+    url.append("?").append(data);
+  } else if (form.method == "post") {
+    request.setOpt(curlpp::options::PostFields(data));
+  }
+  request.setOpt(new curlpp::options::Url(url));
+  request.setOpt(curlpp::options::WriteStream(&answer));
+  request.perform();
+  return answer.str();
+}
 
 int main()
 {
   using namespace std;
-  std::string url = "http://101.43.144.98/vul/xss/xsspost/post_login.php";
-//    auto html = Utils::downloadUrlToString("http://101.43.144.98/vul/xss/xss_reflected_get.php");
-    auto html = Utils::downloadUrlToString("http://101.43.144.98/vul/xss/xsspost/post_login.php");
-//  auto html = Utils::downloadUrlToString("http://101.43.144.98/vul/sqli/sqli_id.php");
-  auto ret = Html::extractForms(html);
-  for (const auto &item: ret) {
-    cout << item.method << "\n" << item.action << "\n";
-    for (const auto &it: item.args) {
-      cout << it.first << "=" << it.second << '\n';
-    }
-  }
-  try{
-    QNetworkAccessManager manager;
-    QNetworkRequest request;
-    request.setUrl(QString::fromStdString(url));
-    request.setHeader(QNetworkRequest::ContentTypeHeader, QString::fromStdString(Form::CONTENT_TYPE));
-    auto ret = manager.get(request);
-    cout << ret;
-  }catch (std::exception &ec){
-    cout << ec.what();
-  }
+  Form form{
+    .method =  "get",
+    .action =   "http://101.43.144.98/vul/xss/xsspost/post_login.php",
+    .args = {{"name", "val"},{"a","b"}}
+  };
+  auto ret = httpSubmit("", form);
+  cout << ret;
 }
