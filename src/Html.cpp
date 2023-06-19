@@ -13,6 +13,16 @@
 
 const std::string Form::CONTENT_TYPE = "application/x-www-form-urlencoded";
 
+std::ostream &operator<<(std::ostream &os, const Form &form)
+{
+  os << "method: " << form.method << " action: " << form.action << "\nargs:\n";
+  for (const auto &item: form.args) {
+    os << item.first << "=" << item.second << '\n';
+  }
+  return os;
+}
+
+
 void searchForLinksHelper(GumboNode *node, std::vector<std::string> &url_lists)
 {
   if (node->type != GUMBO_NODE_ELEMENT) {
@@ -134,10 +144,10 @@ std::string Html::httpRequest(const Form &form)
   curlpp::Cleanup cleanup;
   curlpp::Easy request;
   for (const auto &it: form.args) {
-    data.append(it.first).append("=").append(it.second).push_back('&');
+    data.append(curlpp::escape(it.first)).append("=").append(curlpp::escape(it.second)).push_back('&');
   }
   if (data.ends_with('&')) {
-    data.erase(data.end()-1,data.end());
+    data.erase(data.end() - 1, data.end());
   }
   if (form.method == "get") {
     url.append("?").append(data);

@@ -34,7 +34,8 @@ private:
   QVector<QLabel*> arg_names;
   QVector<QLineEdit*> arg_values;
   QVector<Form> forms;
-  Form* current_form;
+  QVector<QString> payloads_xss;
+  Form current_form;
 };
 
 

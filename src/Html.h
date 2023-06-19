@@ -8,6 +8,7 @@
 #include <vector>
 #include <string>
 #include <unordered_map>
+#include <ostream>
 
 /**
  * 表单，只包括可提交部分
@@ -19,6 +20,8 @@ public:
   std::string method;
   std::string action;
   std::unordered_map<std::string, std::string> args;
+  
+  friend std::ostream &operator<<(std::ostream &os, const Form &form);
   
 };
 
