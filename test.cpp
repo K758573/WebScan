@@ -1,19 +1,24 @@
-//
-// Created by Shiro on 2023/6/15.
-//
-#include "src/Utils.h"
-#include "src/Html.h"
-#include <iostream>
+/**
+* \file
+* Cookies.
+*
+*/
+
+#include <string>
 #include <sstream>
+#include <vector>
+#include <iostream>
+#include <cstdlib>
+#include <ctime>
+#include <curlpp/cURLpp.hpp>
+#include <curlpp/Easy.hpp>
+#include <curlpp/Infos.hpp>
+#include <curlpp/Options.hpp>
+#include <curlpp/Types.hpp>
+#include "src/Log.h"
 
 int main()
 {
-  using namespace std;
-  Form form{
-    .method =  "get",
-    .action =   "http://101.43.144.98/vul/xss/xsspost/post_login.php",
-    .args = {{"name", "val"},{"a","b"}}
-  };
-  auto ret = Html::httpRequest(form);
-  cout << ret;
+  
+  return 0;
 }

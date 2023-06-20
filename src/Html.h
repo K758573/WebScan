@@ -11,7 +11,7 @@
 #include <ostream>
 
 /**
- * 表单，只包括可提交部分
+ * 表单，包含请求地址(从http:开始计算)，请求方式，请求参数
  */
 class Form
 {
@@ -28,6 +28,8 @@ public:
 
 class Html
 {
+private:
+//  curlpp::Easy easy;
 public:
   /**
    * 提取html的 \<a> 标签 的 href属性 <br>
@@ -44,7 +46,41 @@ public:
    */
   static std::vector<Form> extractForms(const std::string& html);
   
+  /**
+   * 通过表单访问网页
+   * @param form 表单
+   * @return 请求的网页
+   */
+  
   static std::string httpRequest(const Form &form);
+  /**
+   * 携带cookie的表单请求
+   * @param form
+   * @param cookie
+   * @return
+   */
+  static std::string httpRequestWithCookie(const Form &form, const std::list<std::string> *cookie);
+  
+  /**
+   * 通过url访问网页
+   * @param url 网页url
+   * @return 响应的网页
+   */
+  static std::string httpRequest(const std::string &url);
+  /**
+   * http请求，请求完成后 获取Cookie
+   * @param url
+   * @param cookie 返回参数
+   * @return
+   */
+  static std::string httpRequestGetCookie(const std::string &url, std::list<std::string> *cookie);
+  /**
+   * 携带cookie进行http请求
+   * @param url
+   * @param cookie
+   * @return
+   */
+  static std::string httpRequestSetCookie(const std::string &url, std::list<std::string> *cookie);
 };
 
 

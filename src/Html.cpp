@@ -6,10 +6,11 @@
 #include <curlpp/Easy.hpp>
 #include <curlpp/cURLpp.hpp>
 #include <curlpp/Options.hpp>
+#include <curlpp/Infos.hpp>
 #include <sstream>
 #include "Html.h"
 #include "gumbo.h"
-
+#include "Log.h"
 
 const std::string Form::CONTENT_TYPE = "application/x-www-form-urlencoded";
 
@@ -140,23 +141,109 @@ std::string Html::httpRequest(const Form &form)
 {
   std::string url = form.action;
   std::stringstream answer;
-  std::string data;
-  curlpp::Cleanup cleanup;
-  curlpp::Easy request;
-  for (const auto &it: form.args) {
-    data.append(curlpp::escape(it.first)).append("=").append(curlpp::escape(it.second)).push_back('&');
+  try {
+    std::string data;
+    curlpp::Cleanup cleanup;
+    curlpp::Easy request;
+    for (const auto &it: form.args) {
+      data.append(curlpp::escape(it.first)).append("=").append(curlpp::escape(it.second)).push_back('&');
+    }
+    if (data.ends_with('&')) {
+      data.erase(data.end() - 1, data.end());
+    }
+    if (form.method == "get") {
+      url.append("?").append(data);
+    } else if (form.method == "post") {
+      request.setOpt(curlpp::options::PostFields(data));
+    }
+    request.setOpt(new curlpp::options::Url(url));
+    request.setOpt(curlpp::options::WriteStream(&answer));
+    request.perform();
+  } catch (std::exception &e) {
+    LOG("{}", e.what());
   }
-  if (data.ends_with('&')) {
-    data.erase(data.end() - 1, data.end());
+  return answer.str();
+}
+
+std::string Html::httpRequest(const std::string &url)
+{
+  std::stringstream answer;
+  try {
+    curlpp::Cleanup cleanup;
+    curlpp::Easy request;
+    request.setOpt(new curlpp::options::Url(url));
+    request.setOpt(curlpp::options::WriteStream(&answer));
+    request.perform();
+    
+  } catch (std::exception &e) {
+    LOG("{}", e.what());
   }
-  if (form.method == "get") {
-    url.append("?").append(data);
-  } else if (form.method == "post") {
-    request.setOpt(curlpp::options::PostFields(data));
+  return answer.str();
+}
+
+std::string Html::httpRequestGetCookie(const std::string &url, std::list<std::string> *cookie)
+{
+  std::stringstream answer;
+  try {
+    curlpp::Cleanup cleanup;
+    curlpp::Easy request;
+    request.setOpt(new curlpp::options::Url(url));
+    request.setOpt(new curlpp::options::WriteStream(&answer));
+    request.setOpt(new curlpp::options::CookieList(""));
+    request.perform();
+    curlpp::infos::CookieList::get(request, *cookie);
+  } catch (std::exception &e) {
+    LOG("{}", e.what());
   }
-  request.setOpt(new curlpp::options::Url(url));
-  request.setOpt(curlpp::options::WriteStream(&answer));
-  request.perform();
+  return answer.str();
+}
+
+std::string Html::httpRequestSetCookie(const std::string &url, std::list<std::string> *cookie)
+{
+  std::stringstream answer;
+  try {
+    curlpp::Cleanup cleanup;
+    curlpp::Easy request;
+    request.setOpt(new curlpp::options::Url(url));
+    request.setOpt(new curlpp::options::WriteStream(&answer));
+    for (const auto &it: *cookie) {
+      request.setOpt(new curlpp::options::CookieList(it));
+    }
+    request.perform();
+  } catch (std::exception &e) {
+    LOG("{}", e.what());
+  }
+  return answer.str();
+}
+
+std::string Html::httpRequestWithCookie(const Form &form, const std::list<std::string> *cookie)
+{
+  std::string url = form.action;
+  std::stringstream answer;
+  try {
+    std::string data;
+    curlpp::Cleanup cleanup;
+    curlpp::Easy request;
+    for (const auto &it: form.args) {
+      data.append(curlpp::escape(it.first)).append("=").append(curlpp::escape(it.second)).push_back('&');
+    }
+    if (data.ends_with('&')) {
+      data.erase(data.end() - 1, data.end());
+    }
+    if (form.method == "get") {
+      url.append("?").append(data);
+    } else if (form.method == "post") {
+      request.setOpt(curlpp::options::PostFields(data));
+    }
+    for (const auto &it: *cookie) {
+      request.setOpt(new curlpp::options::CookieList(it));
+    }
+    request.setOpt(new curlpp::options::Url(url));
+    request.setOpt(curlpp::options::WriteStream(&answer));
+    request.perform();
+  } catch (std::exception &e) {
+    LOG("{}", e.what());
+  }
   return answer.str();
 }
 

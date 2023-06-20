@@ -9,9 +9,11 @@
 #include "src/Utils.h"
 #include <utility>
 #include "ui_FormWindow.h"
+#include "src/Log.h"
 #include <QFile>
 #include <QTextStream>
 #include <QDebug>
+#include <QMessageBox>
 
 void readPayload(QVector<QString> &payloads, const QString &filename)
 {
@@ -25,9 +27,55 @@ void readPayload(QVector<QString> &payloads, const QString &filename)
 }
 
 FormWindow::FormWindow(QWidget *parent) :
-    QWidget(parent), ui(new Ui::FormWindow)
+    QWidget(parent), ui(new Ui::FormWindow), forms(nullptr)
 {
   ui->setupUi(this);
+  paddingContainer();
+  connect(ui->btn_send_form, &QPushButton::clicked, this, &FormWindow::onBtnSendFormClicked);
+  connect(ui->btn_xss_check, &QPushButton::clicked, this, &FormWindow::onBtnXssCheckClicked);
+}
+
+FormWindow::~FormWindow()
+{
+  delete ui;
+}
+
+void FormWindow::receiveFormData(const QVector<Form> &forms_temp)
+{
+  if (forms_temp.empty()) {
+    this->close();
+    QMessageBox::information(nullptr, "提示", "表单未找到", QMessageBox::Ok);
+    return;
+  }
+  this->forms = &forms_temp;
+  this->payloads_xss.clear();
+  this->ui->message_show->clear();
+  this->ui->form_response->setPlainText("");
+  this->will_be_injected.clear();
+  //虽然保存了多个表单，但暂时默认只有一个表单
+  current_form = this->forms->front();
+  ui->label_method->setText(QString::fromStdString(current_form.method));
+  unsigned long i = 0;
+  for (const auto &it: current_form.args) {
+    arg_names[i]->setText(QString::fromStdString(it.first));
+    if (it.second.empty()) {
+      arg_values[i]->setText("$");
+    } else {
+      arg_values[i]->setText(QString::fromStdString(it.second));
+    }
+    arg_names[i]->show();
+    arg_values[i]->show();
+    ++i;
+  }
+  for (; i < arg_names.size(); ++i) {
+    arg_names[i]->hide();
+    arg_values[i]->hide();
+  }
+  this->show();
+}
+
+void FormWindow::paddingContainer()
+{
   arg_names.push_back(ui->label1);
   arg_names.push_back(ui->label2);
   arg_names.push_back(ui->label3);
@@ -48,97 +96,91 @@ FormWindow::FormWindow(QWidget *parent) :
   arg_values.push_back(ui->lineEdit8);
   arg_values.push_back(ui->lineEdit9);
   arg_values.push_back(ui->lineEdit10);
-  connect(ui->pushButton, &QPushButton::clicked, this, [&] {
-    current_form = forms.front();
-    //纠正参数
-    int i = 0;
-    for (i; i < arg_names.size(); ++i) {
-      if (!arg_names[i]->isHidden()) {
-        current_form.args[arg_names[i]->text().toStdString()] = arg_values[i]->text().toStdString();
-      }
-    }
-    auto response = Html::httpRequest(current_form);
-    ui->form_response->setHtml(QString::fromStdString(response));
-  });
-  connect(ui->btn_xss_check, &QPushButton::clicked, this, [&] {
-    readPayload(payloads_xss, "xss_payload_list.txt");
-    ///xss检测
-    ui->message_show->append("构造表单中...");
-    Form form = current_form;
-    for (auto &item: form.args) {
-      item.second = "";
-    }
-    std::stringstream ssm;
-    ssm << form;
-    ui->message_show->append("基础表单结构");
-    ui->message_show->append(ssm.str().c_str());
-    //原始页面
-    QString raw_html = QString::fromStdString(Html::httpRequest(current_form));
-    size_t raw_count, response_count;
-    size_t success_count = 0, sum = 0;
-    for (const auto &it: payloads_xss) {
-      //发送payload，参数填入第一个输入框
-      form.args[arg_names.front()->text().toStdString()] = it.toStdString();
-      std::string ret;
-      try {
-        ret = Html::httpRequest(form);
-      } catch (std::exception &e) {
-        qDebug() << e.what();
-      }
-      QString response = QString::fromStdString(ret);
-      
-      raw_count = raw_html.count(it);
-      response_count = response.count(it);
-      ui->message_show
-        ->append(QString::fromStdString(std::format("payload is : {},\n原payload个数 {} ,回显payload个数 {} ",
-                                                    it.toStdString(),
-                                                    raw_count,
-                                                    response_count)));
-      if (response_count > raw_count) {
-        ++success_count;
-      }
-      ++sum;
-    }
-    ui->message_show->append("尝试了 " + QString::number(sum) + " 个payload ");
-    ui->message_show->append(QString::number(success_count) + " 个payload成功回显");
-    if (success_count * 2 > sum) {
-      ui->message_show->append("大概率存在xss漏洞");
-    } else {
-      ui->message_show->append("可能存在xss漏洞");
-    }
-  });
+  will_be_injected.clear();
 }
 
-FormWindow::~FormWindow()
+void FormWindow::onBtnSendFormClicked()
 {
-  delete ui;
+  updateForm();
+  //使用与主页面相同cookie进行发送
+  auto response = Html::httpRequestWithCookie(current_form,cookie);
+  ui->form_response->setPlainText(QString::fromStdString(response));
 }
 
-void FormWindow::receiveFormData(QVector<Form> forms_temp)
+void FormWindow::onBtnXssCheckClicked()
 {
-  this->forms.clear();
-  this->payloads_xss.clear();
-  this->ui->message_show->clear();
-  this->ui->form_response->setHtml("");
-  
-  if (forms_temp.empty()) {
-    this->close();
-    return;
+  updateForm();
+  readPayload(payloads_xss, "xss_payload_list.txt");
+  ///xss检测
+  ui->message_show->append("构造表单中...");
+  //临时表单，以当前的输入内容为初始
+  Form form = current_form;
+  std::stringstream ssm;
+  ssm << form;
+  ui->message_show->append("基础表单结构");
+  ui->message_show->append(ssm.str().c_str());
+  ssm.str("");
+  ssm << "被用于注入的参数是:\n";
+  for (const auto &it: will_be_injected) {
+    ssm << arg_names[it]->text().toStdString() << "=\n";
   }
-  this->forms = std::move(forms_temp);
-  auto form = this->forms.front();
-  current_form = forms.front();
-  ui->label_method->setText(QString::fromStdString(form.method));
-  int i = 0;
-  for (const auto &it: form.args) {
-    arg_names[i]->setText(QString::fromStdString(it.first));
-    arg_values[i]->setText(QString::fromStdString(it.second));
-    arg_names[i]->show();
-    arg_values[i]->show();
-    ++i;
+  ui->message_show->append(ssm.str().c_str());
+  //原始页面
+  QString raw_html = QString::fromStdString(Html::httpRequest(current_form));
+  size_t raw_count, response_count;
+  size_t success_count = 0, sum = 0;
+  for (const auto &payload: payloads_xss) {
+    //发送payload,被置空的参数都将填入payload
+    for (const auto &it: will_be_injected) {
+      form.args[arg_names[it]->text().toStdString()] = payload.toStdString();
+    }
+    std::string ret;
+    try {
+      ret = Html::httpRequest(form);
+    } catch (std::exception &e) {
+      LOG("{}", e.what());
+    }
+    QString response = QString::fromStdString(ret);
+    raw_count = raw_html.count(payload);
+    response_count = response.count(payload);
+    ui->message_show
+      ->append(QString::fromStdString(std::format("payload is : {},\n原payload个数 {} ,回显payload个数 {} ",
+                                                  payload.toStdString(),
+                                                  raw_count,
+                                                  response_count)));
+    if (response_count > raw_count) {
+      ++success_count;
+    }
+    ++sum;
   }
-  for (i; i < arg_names.size(); ++i) {
-    arg_names[i]->hide();
-    arg_values[i]->hide();
+  ui->message_show->append("尝试了 " + QString::number(sum) + " 个payload ");
+  ui->message_show->append(QString::number(success_count) + " 个payload成功回显");
+  if (success_count * 2 > sum) {
+    ui->message_show->append("大概率存在xss漏洞");
+  } else {
+    ui->message_show->append("可能存在xss漏洞");
   }
+  ui->message_show->append("\n");
+}
+
+void FormWindow::updateForm()
+{
+  will_be_injected.clear();
+  //读取表单数据，标记哪些参数被输入了
+  for (uint i = 0; i < arg_names.size(); ++i) {
+    if (!arg_names[i]->isHidden()) {
+      //输入了一个$符号，认为这个参数没有被输入，这个参数将被用于注入，内部表单参数被置空
+      if (arg_values[i]->text().toStdString() == "$") {
+        will_be_injected.push_back(i);
+        current_form.args[arg_names[i]->text().toStdString()] = "";
+        continue;
+      }
+      current_form.args[arg_names[i]->text().toStdString()] = arg_values[i]->text().toStdString();
+    }
+  }
+}
+
+void FormWindow::receiveCookie(const std::list<std::string> *cookie_list)
+{
+  this->cookie = cookie_list;
 }

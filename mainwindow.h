@@ -6,6 +6,7 @@
 #define WEBSCAN_MAINWINDOW_H
 
 #include <QMainWindow>
+#include <QModelIndex>
 #include "formwindow.h"
 #include "src/Utils.h"
 #include "src/Html.h"
@@ -26,19 +27,33 @@ public:
 
 signals:
   
-  void sendFormData(QVector<Form> forms);
+  void sendFormData(const QVector<Form>& forms);
+  void sendCookie(const std::list<std::string> *cookie);
 
-private:
-  void initUrlData();
-
+private slots:
+  /**
+   * 点击抓取按钮，提取所输入的网页的url，保存到到url_pages中
+   */
+  void onButtonGetUrlListClicked();
+  /**
+   * 点击链接树的节点，更新对应的界面
+   * @param index 链接对应的索引
+   */
+  void onTreeUrlListClicked(QModelIndex index);
+  
+  /**
+   * 点击提取表单，生成一个提取表单的界面，刷新当前界面，提取cookie
+   */
+  void onActionExtractForm();
 
 private:
   Ui::MainWindow *ui;
-  QMap<QUrl, QString> url_pages;
-  QMap<QUrl, QVector<Form>> url_forms;
-  QString current_url;
+  //保存的是完整的url地址
+  QMap<QString, QString> url_pages;
+  QMap<QString, QVector<Form>> url_forms;
   QString root_url;
   FormWindow *form_window;
+  std::list<std::string> *cookie;
 };
 
 

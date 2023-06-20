@@ -27,15 +27,26 @@ public:
   ~FormWindow() override;
 
 public slots:
-  void receiveFormData(QVector<Form> forms_temp);
+  void receiveFormData(const QVector<Form>& forms_temp);
+  void receiveCookie(const std::list<std::string> *cookie_list);
+  void onBtnXssCheckClicked();
+  void onBtnSendFormClicked();
+
+private:
+  //从输入中读取表单，更新表单结构
+  void updateForm();
+  //填充结构体
+  void paddingContainer();
 
 private:
   Ui::FormWindow *ui;
   QVector<QLabel*> arg_names;
   QVector<QLineEdit*> arg_values;
-  QVector<Form> forms;
+  QVector<uint8_t> will_be_injected;
+  const QVector<Form> *forms;
   QVector<QString> payloads_xss;
   Form current_form;
+  const std::list<std::string> *cookie;
 };
 
 
