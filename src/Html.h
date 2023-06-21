@@ -28,39 +28,22 @@ public:
 
 class CookieItem
 {
-private:
-  static const int COOKIE_ITEM_NUMBER = 7;
-  std::array<std::string, COOKIE_ITEM_NUMBER> args;
-
 public:
-  [[nodiscard]] const std::string &tail() const;
-  
-  [[nodiscard]] const std::string &path() const;
-  
-  [[nodiscard]] const std::string &secure() const;
-  
-  [[nodiscard]] const std::string &expires() const;
-  
-  [[nodiscard]] const std::string &name() const;
-  
-  [[nodiscard]] const std::string &value() const;
-  
-  
-  [[nodiscard]] const std::string &domain() const;
-  
-  [[nodiscard]] std::string tostring() const;
-  
-  void value(std::string value)
-  {
-    args[6] = std::move(value);
-  };
-
+  std::string domain;
+  std::string tail = "FALSE";
+  std::string path = "/";
+  std::string secure = "FALSE";
+  std::string expires = "0";
+  std::string name;
+  std::string value;
 private:
   std::string cookie_list_item_;
 public:
   static CookieItem fromstring(const std::string &cookie_list_item);
   
   friend std::ostream &operator<<(std::ostream &os, const CookieItem &item);
+  
+  [[nodiscard]] std::string toCookieListItem() const;
 };
 
 namespace curlpp {
@@ -69,11 +52,12 @@ class Easy;
 
 class Html
 {
+public:
+//  static std::vector<CookieItem> cookie_list;
+  static std::list<std::string> cookie_list;
+
 private:
-  //请求
-  static curlpp::Easy request;
   ///提供一个cookie_list供操作
-  static std::string cookie_list;
 public:
   
   /**
@@ -94,6 +78,7 @@ public:
   /**
    * 通过表单访问网页，会使用上次请求的cookie
    * @param form 表单
+   * @param status 返回参数 请求和响应使用相同cookie，返回true
    * @return 请求的网页
    */
   

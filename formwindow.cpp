@@ -33,7 +33,7 @@ FormWindow::FormWindow(QWidget *parent) :
   paddingContainer();
   connect(ui->btn_send_form, &QPushButton::clicked, this, &FormWindow::onBtnSendFormClicked);
   connect(ui->btn_xss_check, &QPushButton::clicked, this, &FormWindow::onBtnXssCheckClicked);
-  
+  connect(ui->btn_bf_check, &QPushButton::clicked, this, &FormWindow::onBtnBfCheckClicked);
 }
 
 FormWindow::~FormWindow()
@@ -43,7 +43,6 @@ FormWindow::~FormWindow()
 
 void FormWindow::receiveFormData(const QVector<Form> &forms_temp)
 {
-  updateCookie();
   if (forms_temp.empty()) {
     this->close();
     QMessageBox::information(nullptr, "提示", "表单未找到", QMessageBox::Ok);
@@ -103,7 +102,6 @@ void FormWindow::paddingContainer()
 
 void FormWindow::onBtnSendFormClicked()
 {
-  updateCookie();
   updateForm();
   auto response = Html::httpRequest(current_form);
   ui->form_response->setPlainText(QString::fromStdString(response));
@@ -182,15 +180,27 @@ void FormWindow::updateForm()
   }
 }
 
-void FormWindow::updateCookie()
+void FormWindow::onBtnBfCheckClicked()
 {
-  if (Html::cookie.empty()) {
-    ui->value_cookie->setText("");
-    ui->label_cookie->setText("");
-    return;
+  updateForm();
+  //读取payload。。。
+  payloads_bf.append("123");
+  payloads_bf.append("123456");
+  payloads_bf.append("123456789");
+  payloads_bf.append("12345678900");
+  //
+  Form form = current_form;
+  for (const auto &payload: payloads_bf) {
+    //发送payload,被置空的参数都将填入payload
+    for (const auto &it: will_be_injected) {
+      ui->message_show->append(arg_names[it]->text() + "=" + payload);
+      form.args[arg_names[it]->text().toStdString()] = payload.toStdString();
+    }
+    QString ret = QString::fromStdString(Html::httpRequest(form));
+    if (ret.count("login success") > 0) {
+      ui->message_show->append("破解成功");
+      return;
+    }
   }
-  CookieItem ci = CookieItem::fromstring(Html::cookie.front());
-  ui->label_cookie->setText(QString::fromStdString(ci.name()));
-  ui->value_cookie->setText(QString::fromStdString(ci.value()));
+  
 }
-

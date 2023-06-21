@@ -9,6 +9,7 @@
 #include <QStandardItem>
 #include <QWebEngineProfile>
 #include <QWebEngineCookieStore>
+#include <algorithm>
 #include "src/Log.h"
 
 const QString HTTP_LINK_PREFIX = "http://";
@@ -32,9 +33,18 @@ MainWindow::MainWindow(QWidget *parent) :
   connect(ui->browser_page->page()->profile()->cookieStore(),
           &QWebEngineCookieStore::cookieAdded,
           this,
-          [&](const QNetworkCookie& cookie) {
-            LOG("{}",cookie.name().toStdString());
-            LOG("{}",cookie.value().toStdString());
+          [&](const QNetworkCookie &cookie) {
+            for (auto &item: Html::cookie_list) {
+              CookieItem ci = CookieItem::fromstring(item);
+              if (ci.name == cookie.name().toStdString()) {
+                LOG("curl的cookie更新为浏览器cookie,name = {} , value: {} -->> {}",
+                    ci.name,
+                    ci.value,
+                    cookie.value().toStdString());
+                ci.value = cookie.value().toStdString();
+                item = ci.toCookieListItem();
+              }
+            }
           });
 }
 

@@ -15,6 +15,6 @@
 extern "C++" std::ofstream log_file_out;
 
 #define LOG(...) \
-  log_file_out << std::format("{} info [{}:{}]:",std::chrono::system_clock::now().time_since_epoch().count(),__FILENAME__,__LINE__) << std::format(__VA_ARGS__) << '\n'
-
+  log_file_out << std::format("info [{}:{}]:",__FILENAME__,__LINE__) << std::format(__VA_ARGS__) << '\n'
+//  log_file_out << std::format("{} info [{}:{}]:",std::chrono::system_clock::now().time_since_epoch().count(),__FILENAME__,__LINE__) << std::format(__VA_ARGS__) << '\n'
 #endif //ASIOZ_LOG_H

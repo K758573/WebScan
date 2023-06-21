@@ -29,16 +29,15 @@ public:
 public slots:
   void receiveFormData(const QVector<Form>& forms_temp);
   
-  void onBtnXssCheckClicked();
   void onBtnSendFormClicked();
+  void onBtnXssCheckClicked();
+  void onBtnBfCheckClicked();
 
 private:
   //从输入中读取表单，更新表单结构
   void updateForm();
   //填充结构体
   void paddingContainer();
-  
-  void updateCookie();
   
 
 private:
@@ -48,6 +47,7 @@ private:
   QVector<uint8_t> will_be_injected;
   const QVector<Form> *forms;
   QVector<QString> payloads_xss;
+  QVector<QString> payloads_bf;
   Form current_form;
 };
 
