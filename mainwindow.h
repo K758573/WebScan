@@ -28,7 +28,6 @@ public:
 signals:
   
   void sendFormData(const QVector<Form>& forms);
-  void sendCookie(const std::list<std::string> *cookie);
 
 private slots:
   /**
@@ -53,7 +52,6 @@ private:
   QMap<QString, QVector<Form>> url_forms;
   QString root_url;
   FormWindow *form_window;
-  std::list<std::string> *cookie;
 };
 
 

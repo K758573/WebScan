@@ -3,7 +3,6 @@
 //
 
 #include <cassert>
-#include <curlpp/Easy.hpp>
 #include <curlpp/cURLpp.hpp>
 #include <curlpp/Options.hpp>
 #include <curlpp/Infos.hpp>
@@ -11,6 +10,9 @@
 #include "Html.h"
 #include "gumbo.h"
 #include "Log.h"
+
+curlpp::Easy Html::request;
+std::string Html::cookie_list;
 
 const std::string Form::CONTENT_TYPE = "application/x-www-form-urlencoded";
 
@@ -60,7 +62,8 @@ void extractFormInputHelper(GumboNode *node, std::vector<GumboNode *> &inputs)
   if (node->type != GUMBO_NODE_ELEMENT) {
     return;
   }
-  if (node->v.element.tag == GUMBO_TAG_INPUT || node->v.element.tag == GUMBO_TAG_SELECT) {
+  if (node->v.element.tag == GUMBO_TAG_INPUT || node->v.element.tag == GUMBO_TAG_SELECT ||
+      node->v.element.tag == GUMBO_TAG_TEXTAREA) {
     inputs.push_back(node);
     return;
   }
@@ -143,8 +146,6 @@ std::string Html::httpRequest(const Form &form)
   std::stringstream answer;
   try {
     std::string data;
-    curlpp::Cleanup cleanup;
-    curlpp::Easy request;
     for (const auto &it: form.args) {
       data.append(curlpp::escape(it.first)).append("=").append(curlpp::escape(it.second)).push_back('&');
     }
@@ -154,10 +155,11 @@ std::string Html::httpRequest(const Form &form)
     if (form.method == "get") {
       url.append("?").append(data);
     } else if (form.method == "post") {
-      request.setOpt(curlpp::options::PostFields(data));
+      request.setOpt(new curlpp::options::PostFields(data));
     }
     request.setOpt(new curlpp::options::Url(url));
-    request.setOpt(curlpp::options::WriteStream(&answer));
+    request.setOpt(new curlpp::options::WriteStream(&answer));
+    request.setOpt(new curlpp::options::CookieList(cookie_list));
     request.perform();
   } catch (std::exception &e) {
     LOG("{}", e.what());
@@ -167,83 +169,80 @@ std::string Html::httpRequest(const Form &form)
 
 std::string Html::httpRequest(const std::string &url)
 {
-  std::stringstream answer;
-  try {
-    curlpp::Cleanup cleanup;
-    curlpp::Easy request;
-    request.setOpt(new curlpp::options::Url(url));
-    request.setOpt(curlpp::options::WriteStream(&answer));
-    request.perform();
-    
-  } catch (std::exception &e) {
-    LOG("{}", e.what());
-  }
-  return answer.str();
+  Form form;
+  form.method = "get";
+  form.action = url;
+  return httpRequest(form);
 }
 
-std::string Html::httpRequestGetCookie(const std::string &url, std::list<std::string> *cookie)
+
+CookieItem CookieItem::fromstring(const std::string &cookie_list_item)
 {
-  std::stringstream answer;
-  try {
-    curlpp::Cleanup cleanup;
-    curlpp::Easy request;
-    request.setOpt(new curlpp::options::Url(url));
-    request.setOpt(new curlpp::options::WriteStream(&answer));
-    request.setOpt(new curlpp::options::CookieList(""));
-    request.perform();
-    curlpp::infos::CookieList::get(request, *cookie);
-  } catch (std::exception &e) {
-    LOG("{}", e.what());
+  auto c = std::count(cookie_list_item.begin(), cookie_list_item.end(), '\t');
+  CookieItem cookie_item;
+  if (c != 6) {
+    LOG("{}", "cookie list item字符串解析失败");
+    return cookie_item;
   }
-  return answer.str();
+  size_t first = 0, last = 0;
+  for (int i = 0; i < COOKIE_ITEM_NUMBER; ++i) {
+    last = cookie_list_item.find('\t', first);
+    cookie_item.args[i] = cookie_list_item.substr(first, last - first);
+    first = last + 1;
+  }
+  return cookie_item;
 }
 
-std::string Html::httpRequestSetCookie(const std::string &url, std::list<std::string> *cookie)
+const std::string &CookieItem::domain() const
 {
-  std::stringstream answer;
-  try {
-    curlpp::Cleanup cleanup;
-    curlpp::Easy request;
-    request.setOpt(new curlpp::options::Url(url));
-    request.setOpt(new curlpp::options::WriteStream(&answer));
-    for (const auto &it: *cookie) {
-      request.setOpt(new curlpp::options::CookieList(it));
-    }
-    request.perform();
-  } catch (std::exception &e) {
-    LOG("{}", e.what());
-  }
-  return answer.str();
+  return args[0];
 }
 
-std::string Html::httpRequestWithCookie(const Form &form, const std::list<std::string> *cookie)
+const std::string &CookieItem::tail() const
 {
-  std::string url = form.action;
-  std::stringstream answer;
-  try {
-    std::string data;
-    curlpp::Cleanup cleanup;
-    curlpp::Easy request;
-    for (const auto &it: form.args) {
-      data.append(curlpp::escape(it.first)).append("=").append(curlpp::escape(it.second)).push_back('&');
-    }
-    if (data.ends_with('&')) {
-      data.erase(data.end() - 1, data.end());
-    }
-    if (form.method == "get") {
-      url.append("?").append(data);
-    } else if (form.method == "post") {
-      request.setOpt(curlpp::options::PostFields(data));
-    }
-    for (const auto &it: *cookie) {
-      request.setOpt(new curlpp::options::CookieList(it));
-    }
-    request.setOpt(new curlpp::options::Url(url));
-    request.setOpt(curlpp::options::WriteStream(&answer));
-    request.perform();
-  } catch (std::exception &e) {
-    LOG("{}", e.what());
-  }
-  return answer.str();
+  return args[1];
 }
 
+const std::string &CookieItem::path() const
+{
+  return args[2];
+}
+
+const std::string &CookieItem::secure() const
+{
+  return args[3];
+}
+
+const std::string &CookieItem::expires() const
+{
+  return args[4];
+}
+
+const std::string &CookieItem::name() const
+{
+  return args[5];
+}
+
+const std::string &CookieItem::value() const
+{
+  return args[6];
+}
+
+std::ostream &operator<<(std::ostream &os, const CookieItem &item)
+{
+  os << "tail: " << item.tail() << " path: " << item.path() << " secure: " << item.secure() << " expires: "
+     << item.expires() << " name: " << item.name() << " value: " << item.value();
+  return os;
+}
+
+std::string CookieItem::tostring() const
+{
+  std::string answer;
+  for (int i = 0; i < args.size(); ++i) {
+    answer.append(args[i]);
+    if (i != args.size() - 1) {
+      answer.push_back('\t');
+    }
+  }
+  return answer;
+}

@@ -28,7 +28,7 @@ public:
 
 public slots:
   void receiveFormData(const QVector<Form>& forms_temp);
-  void receiveCookie(const std::list<std::string> *cookie_list);
+  
   void onBtnXssCheckClicked();
   void onBtnSendFormClicked();
 
@@ -37,6 +37,9 @@ private:
   void updateForm();
   //填充结构体
   void paddingContainer();
+  
+  void updateCookie();
+  
 
 private:
   Ui::FormWindow *ui;
@@ -46,7 +49,6 @@ private:
   const QVector<Form> *forms;
   QVector<QString> payloads_xss;
   Form current_form;
-  const std::list<std::string> *cookie;
 };
 
 

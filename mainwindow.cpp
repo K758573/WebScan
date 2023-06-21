@@ -7,14 +7,17 @@
 #include "mainwindow.h"
 #include "ui_MainWindow.h"
 #include <QStandardItem>
+#include <QWebEngineProfile>
+#include <QWebEngineCookieStore>
 #include "src/Log.h"
+
 const QString HTTP_LINK_PREFIX = "http://";
 const QString HTTPS_LINK_PREFIX = "https://";
 
 void correctFormAction(const QString &url, QVector<Form> &forms);
 
 MainWindow::MainWindow(QWidget *parent) :
-    QMainWindow(parent), ui(new Ui::MainWindow), cookie(new std::list<std::string>())
+    QMainWindow(parent), ui(new Ui::MainWindow)
 {
   ui->setupUi(this);
   form_window = new FormWindow(nullptr);
@@ -26,7 +29,13 @@ MainWindow::MainWindow(QWidget *parent) :
   connect(ui->act_extract_form, &QAction::triggered, this, &MainWindow::onActionExtractForm);
   //建立窗口之间的通信，用于传输表单
   connect(this, &MainWindow::sendFormData, form_window, &FormWindow::receiveFormData);
-  connect(this, &MainWindow::sendCookie, form_window, &FormWindow::receiveCookie);
+  connect(ui->browser_page->page()->profile()->cookieStore(),
+          &QWebEngineCookieStore::cookieAdded,
+          this,
+          [&](const QNetworkCookie& cookie) {
+            LOG("{}",cookie.name().toStdString());
+            LOG("{}",cookie.value().toStdString());
+          });
 }
 
 MainWindow::~MainWindow()
@@ -44,9 +53,7 @@ void MainWindow::onButtonGetUrlListClicked()
   if (!root_url.endsWith("/")) {
     root_url.push_back('/');
   }
-  //访问根页面，不使用cookie
   auto response = Html::httpRequest(ui->edit_line_url->text().toStdString());
-  
   url_pages.insert(root_url, QString::fromStdString(response));
   auto it = new QStandardItem(ui->edit_line_url->text());
   model->setItem(0, 0, it);
@@ -78,7 +85,6 @@ void MainWindow::onTreeUrlListClicked(QModelIndex index)
   QString url = index.data().toString();
   //查找页面，如果有缓存，直接取出
   if (url_pages[url] == QString()) {
-    //爬取页面不使用cookie
     url_pages[url] = QString::fromStdString(Html::httpRequest(url.toStdString()));
   }
   ui->browser_page->setHtml(url_pages[url], root_url);
@@ -89,10 +95,6 @@ void MainWindow::onActionExtractForm()
 {
   //表单界面的url
   auto url = ui->tree_url_list->currentIndex().data().toString();
-  //提取表单时，使用相同cookie
-  url_pages[url] = QString::fromStdString(Html::httpRequestGetCookie(url.toStdString(), cookie));
-  //页面改变，更新页面
-  ui->browser_page->setHtml(url_pages[url],root_url);
   //查找缓存，提取表单，添加到缓存变量
   if (url_forms.find(url) == url_forms.end()) {
     auto forms = Html::extractForms(url_pages[url].toStdString());
@@ -102,7 +104,6 @@ void MainWindow::onActionExtractForm()
   }
   
   emit sendFormData(url_forms[url]);
-  emit sendCookie(cookie);
 }
 
 ///表单地址转绝对路径

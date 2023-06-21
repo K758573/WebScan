@@ -9,6 +9,7 @@
 #include <string>
 #include <unordered_map>
 #include <ostream>
+#include <array>
 
 /**
  * 表单，包含请求地址(从http:开始计算)，请求方式，请求参数
@@ -25,18 +26,62 @@ public:
   
 };
 
+class CookieItem
+{
+private:
+  static const int COOKIE_ITEM_NUMBER = 7;
+  std::array<std::string, COOKIE_ITEM_NUMBER> args;
+
+public:
+  [[nodiscard]] const std::string &tail() const;
+  
+  [[nodiscard]] const std::string &path() const;
+  
+  [[nodiscard]] const std::string &secure() const;
+  
+  [[nodiscard]] const std::string &expires() const;
+  
+  [[nodiscard]] const std::string &name() const;
+  
+  [[nodiscard]] const std::string &value() const;
+  
+  
+  [[nodiscard]] const std::string &domain() const;
+  
+  [[nodiscard]] std::string tostring() const;
+  
+  void value(std::string value)
+  {
+    args[6] = std::move(value);
+  };
+
+private:
+  std::string cookie_list_item_;
+public:
+  static CookieItem fromstring(const std::string &cookie_list_item);
+  
+  friend std::ostream &operator<<(std::ostream &os, const CookieItem &item);
+};
+
+namespace curlpp {
+class Easy;
+}
 
 class Html
 {
 private:
-//  curlpp::Easy easy;
+  //请求
+  static curlpp::Easy request;
+  ///提供一个cookie_list供操作
+  static std::string cookie_list;
 public:
+  
   /**
    * 提取html的 \<a> 标签 的 href属性 <br>
    * @param html
    * @return 链接字符串数组
    */
-  static std::vector<std::string> extractLinks(const std::string& html);
+  static std::vector<std::string> extractLinks(const std::string &html);
   
   /**
    * 提取html的 \<form> 标签的属性 method,action <br>
@@ -44,22 +89,15 @@ public:
    * @param html
    * @return 提取出的表单数组
    */
-  static std::vector<Form> extractForms(const std::string& html);
+  static std::vector<Form> extractForms(const std::string &html);
   
   /**
-   * 通过表单访问网页
+   * 通过表单访问网页，会使用上次请求的cookie
    * @param form 表单
    * @return 请求的网页
    */
   
   static std::string httpRequest(const Form &form);
-  /**
-   * 携带cookie的表单请求
-   * @param form
-   * @param cookie
-   * @return
-   */
-  static std::string httpRequestWithCookie(const Form &form, const std::list<std::string> *cookie);
   
   /**
    * 通过url访问网页
@@ -67,20 +105,7 @@ public:
    * @return 响应的网页
    */
   static std::string httpRequest(const std::string &url);
-  /**
-   * http请求，请求完成后 获取Cookie
-   * @param url
-   * @param cookie 返回参数
-   * @return
-   */
-  static std::string httpRequestGetCookie(const std::string &url, std::list<std::string> *cookie);
-  /**
-   * 携带cookie进行http请求
-   * @param url
-   * @param cookie
-   * @return
-   */
-  static std::string httpRequestSetCookie(const std::string &url, std::list<std::string> *cookie);
+  
 };
 
 

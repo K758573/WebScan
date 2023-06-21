@@ -33,6 +33,7 @@ FormWindow::FormWindow(QWidget *parent) :
   paddingContainer();
   connect(ui->btn_send_form, &QPushButton::clicked, this, &FormWindow::onBtnSendFormClicked);
   connect(ui->btn_xss_check, &QPushButton::clicked, this, &FormWindow::onBtnXssCheckClicked);
+  
 }
 
 FormWindow::~FormWindow()
@@ -42,6 +43,7 @@ FormWindow::~FormWindow()
 
 void FormWindow::receiveFormData(const QVector<Form> &forms_temp)
 {
+  updateCookie();
   if (forms_temp.empty()) {
     this->close();
     QMessageBox::information(nullptr, "提示", "表单未找到", QMessageBox::Ok);
@@ -101,9 +103,9 @@ void FormWindow::paddingContainer()
 
 void FormWindow::onBtnSendFormClicked()
 {
+  updateCookie();
   updateForm();
-  //使用与主页面相同cookie进行发送
-  auto response = Html::httpRequestWithCookie(current_form,cookie);
+  auto response = Html::httpRequest(current_form);
   ui->form_response->setPlainText(QString::fromStdString(response));
 }
 
@@ -180,7 +182,15 @@ void FormWindow::updateForm()
   }
 }
 
-void FormWindow::receiveCookie(const std::list<std::string> *cookie_list)
+void FormWindow::updateCookie()
 {
-  this->cookie = cookie_list;
+  if (Html::cookie.empty()) {
+    ui->value_cookie->setText("");
+    ui->label_cookie->setText("");
+    return;
+  }
+  CookieItem ci = CookieItem::fromstring(Html::cookie.front());
+  ui->label_cookie->setText(QString::fromStdString(ci.name()));
+  ui->value_cookie->setText(QString::fromStdString(ci.value()));
 }
+
