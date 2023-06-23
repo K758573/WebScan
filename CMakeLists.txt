@@ -30,3 +30,5 @@ function(define_file_basename target)
     endforeach ()
 endfunction()
 define_file_basename(WebScan)
+
+add_compile_options(-O3)

@@ -17,6 +17,9 @@
 
 void readPayload(QVector<QString> &payloads, const QString &filename)
 {
+  if (!payloads.empty()) {
+    return;
+  }
   QFile file;
   file.setFileName(filename);
   file.open(QFile::ReadOnly);
@@ -34,6 +37,7 @@ FormWindow::FormWindow(QWidget *parent) :
   connect(ui->btn_send_form, &QPushButton::clicked, this, &FormWindow::onBtnSendFormClicked);
   connect(ui->btn_xss_check, &QPushButton::clicked, this, &FormWindow::onBtnXssCheckClicked);
   connect(ui->btn_bf_check, &QPushButton::clicked, this, &FormWindow::onBtnBfCheckClicked);
+  connect(ui->btn_sql_check, &QPushButton::clicked, this, &FormWindow::onBtnSqlCheckClicked);
 }
 
 FormWindow::~FormWindow()
@@ -203,4 +207,25 @@ void FormWindow::onBtnBfCheckClicked()
     }
   }
   
+}
+
+void FormWindow::onBtnSqlCheckClicked()
+{
+  updateForm();
+  //读取payload。。。
+  readPayload(payloads_sql, "sql_payload_list.txt");
+  //
+  Form form = current_form;
+  for (const auto &payload: payloads_sql) {
+    //发送payload,被置空的参数都将填入payload
+    for (const auto &it: will_be_injected) {
+      ui->message_show->append(arg_names[it]->text() + "=" + payload);
+      form.args[arg_names[it]->text().toStdString()] = payload.toStdString();
+    }
+    QString ret = QString::fromStdString(Html::httpRequest(form));
+    if (ret.count("You have an error in your SQL syntax") > 0) {
+      ui->message_show->append("存在sql注入漏洞,payload: " + payload);
+      return;
+    }
+  }
 }

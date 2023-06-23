@@ -32,7 +32,9 @@ public slots:
   void onBtnSendFormClicked();
   void onBtnXssCheckClicked();
   void onBtnBfCheckClicked();
+  void onBtnSqlCheckClicked();
 
+  
 private:
   //从输入中读取表单，更新表单结构
   void updateForm();
@@ -48,6 +50,7 @@ private:
   const QVector<Form> *forms;
   QVector<QString> payloads_xss;
   QVector<QString> payloads_bf;
+  QVector<QString> payloads_sql;
   Form current_form;
 };
 
