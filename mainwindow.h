@@ -8,8 +8,7 @@
 #include <QMainWindow>
 #include <QModelIndex>
 #include "formwindow.h"
-#include "src/Utils.h"
-#include "src/Html.h"
+#include "WebScan.h"
 
 QT_BEGIN_NAMESPACE
 namespace Ui { class MainWindow; }
@@ -52,6 +51,7 @@ private:
   QMap<QString, QVector<Form>> url_forms;
   QString root_url;
   FormWindow *form_window;
+  HttpRequest request;
 };
 
 
