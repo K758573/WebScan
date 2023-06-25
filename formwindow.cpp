@@ -15,6 +15,7 @@
 #include <utility>
 #include <QFileDialog>
 #include <thread>
+#include <chrono>
 
 enum ScanType
 {
@@ -32,53 +33,66 @@ FormWindow::FormWindow(QWidget *parent, HttpRequest &request) :
   ui->comboBox->setCurrentIndex(0);
   //  this->setAttribute(Qt::WA_DeleteOnClose);
   connect(ui->btn_send_form, &QPushButton::clicked, this, &FormWindow::onBtnSendFormClicked);
-  connect(ui->btn_select_payload, &QPushButton::clicked, this, [this] {
-    QString filename = QFileDialog::getOpenFileName(nullptr, "选择使用的payload", "./", "payload (*.txt);;all(*.*)");
-    ui->label_selected_payload->setText(filename);
-  });
-  connect(ui->btn_start, &QPushButton::clicked, this, [this] {
-    if (ui->label_selected_payload->text().isEmpty()) {
-      QMessageBox::information(nullptr, "提示", "还未选择payload");
-      return;
-    }
-    ui->btn_start->setEnabled(false);
-    ui->btn_stop->setEnabled(true);
-    status = THREAD_RUNNING;
-    auto st = ui->comboBox->currentData().value<ScanType>();
-    switch (st) {
-      case SCAN_TYPE_XSS:
-        onBtnXssCheckClicked();
-        break;
-      case SCAN_TYPE_BF:
-        onBtnBfCheckClicked();
-        break;
-      case SCAN_TYPE_SQL:
-        onBtnSqlCheckClicked();
-        break;
-    }
-  });
+  connect(ui->btn_select_payload, &QPushButton::clicked, this, &FormWindow::onBtnSelectPayload);
+  connect(ui->btn_start, &QPushButton::clicked, this, &FormWindow::onBtnStart);
   connect(this, &FormWindow::messageAdd, ui->message_show, &QTextEdit::append);
-  connect(ui->btn_stop, &QPushButton::clicked, this, [this] {
-    status = THREAD_FINISHED;
-    while (status != THREAD_NOT_START) {
-      //wait thread to stop
-    }
-    ui->btn_start->setEnabled(true);
-    ui->btn_stop->setEnabled(false);
-  });
+  connect(ui->btn_stop, &QPushButton::clicked, this, &FormWindow::onBtnStop);
   
-  connect(this, &FormWindow::scanFinished, this, [&] {
+  connect(this, &FormWindow::scanFinished, this, [this] {
     ui->btn_start->setEnabled(true);
     ui->btn_stop->setEnabled(false);
   });
 }
 
-FormWindow::~FormWindow()
+void FormWindow::onBtnStop()
 {
-  if (status != THREAD_NOT_START) {
+  if (status == THREAD_RUNNING) {
     status = THREAD_FINISHED;
     while (status != THREAD_NOT_START) {
-    
+      //wait thread to stop
+      std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    }
+  }
+  ui->btn_start->setEnabled(true);
+  ui->btn_stop->setEnabled(false);
+}
+
+void FormWindow::onBtnStart()
+{
+  if (ui->label_selected_payload->text().isEmpty()) {
+    QMessageBox::information(nullptr, "提示", "还未选择payload");
+    return;
+  }
+  ui->btn_start->setEnabled(false);
+  ui->btn_stop->setEnabled(true);
+  status = THREAD_RUNNING;
+  auto st = ui->comboBox->currentData().value<ScanType>();
+  switch (st) {
+    case SCAN_TYPE_XSS:
+      onBtnXssCheckClicked();
+      break;
+    case SCAN_TYPE_BF:
+      onBtnBfCheckClicked();
+      break;
+    case SCAN_TYPE_SQL:
+      onBtnSqlCheckClicked();
+      break;
+  }
+}
+
+void FormWindow::onBtnSelectPayload()
+{
+  QString filename = QFileDialog::getOpenFileName(nullptr, "选择使用的payload", "./", "payload (*.txt);;all(*.*)");
+  ui->label_selected_payload->setText(filename);
+}
+
+FormWindow::~FormWindow()
+{
+  if (status == THREAD_RUNNING) {
+    status = THREAD_FINISHED;
+    while (status != THREAD_NOT_START) {
+      //wait thread to stop
+      std::this_thread::sleep_for(std::chrono::milliseconds(10));
     }
   }
   delete ui;

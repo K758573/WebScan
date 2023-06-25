@@ -39,7 +39,11 @@ public slots:
   void onBtnBfCheckClicked();
   
   void onBtnSqlCheckClicked();
-
+  
+  void onBtnSelectPayload();
+  
+  void onBtnStart();
+  void onBtnStop();
 
 private:
   //页面的任务状态
@@ -64,7 +68,6 @@ private:
   
   void beginCheck(check_function &process = nullptr, check_print &summary = nullptr);
 
-  
 signals:
   void messageAdd(const QString &msg);
   
