@@ -16,20 +16,71 @@
 #include <QFileDialog>
 #include <thread>
 
+enum ScanType
+{
+  SCAN_TYPE_XSS = 1, SCAN_TYPE_BF = 2, SCAN_TYPE_SQL = 3,
+};
+
+
 FormWindow::FormWindow(QWidget *parent, HttpRequest &request) :
     QWidget(parent), ui(new Ui::FormWindow), forms(nullptr), request(request)
 {
   ui->setupUi(this);
+  ui->comboBox->addItem("xss", ScanType::SCAN_TYPE_XSS);
+  ui->comboBox->addItem("暴力破解", ScanType::SCAN_TYPE_BF);
+  ui->comboBox->addItem("sql注入", ScanType::SCAN_TYPE_SQL);
+  ui->comboBox->setCurrentIndex(0);
   //  this->setAttribute(Qt::WA_DeleteOnClose);
   connect(ui->btn_send_form, &QPushButton::clicked, this, &FormWindow::onBtnSendFormClicked);
-  connect(ui->btn_xss_check, &QPushButton::clicked, this, &FormWindow::onBtnXssCheckClicked);
-  connect(ui->btn_bf_check, &QPushButton::clicked, this, &FormWindow::onBtnBfCheckClicked);
-  connect(ui->btn_sql_check, &QPushButton::clicked, this, &FormWindow::onBtnSqlCheckClicked);
+  connect(ui->btn_select_payload, &QPushButton::clicked, this, [this] {
+    QString filename = QFileDialog::getOpenFileName(nullptr, "选择使用的payload", "./", "payload (*.txt);;all(*.*)");
+    ui->label_selected_payload->setText(filename);
+  });
+  connect(ui->btn_start, &QPushButton::clicked, this, [this] {
+    if (ui->label_selected_payload->text().isEmpty()) {
+      QMessageBox::information(nullptr, "提示", "还未选择payload");
+      return;
+    }
+    ui->btn_start->setEnabled(false);
+    ui->btn_stop->setEnabled(true);
+    status = THREAD_RUNNING;
+    auto st = ui->comboBox->currentData().value<ScanType>();
+    switch (st) {
+      case SCAN_TYPE_XSS:
+        onBtnXssCheckClicked();
+        break;
+      case SCAN_TYPE_BF:
+        onBtnBfCheckClicked();
+        break;
+      case SCAN_TYPE_SQL:
+        onBtnSqlCheckClicked();
+        break;
+    }
+  });
   connect(this, &FormWindow::messageAdd, ui->message_show, &QTextEdit::append);
+  connect(ui->btn_stop, &QPushButton::clicked, this, [this] {
+    status = THREAD_FINISHED;
+    while (status != THREAD_NOT_START) {
+      //wait thread to stop
+    }
+    ui->btn_start->setEnabled(true);
+    ui->btn_stop->setEnabled(false);
+  });
+  
+  connect(this, &FormWindow::scanFinished, this, [&] {
+    ui->btn_start->setEnabled(true);
+    ui->btn_stop->setEnabled(false);
+  });
 }
 
 FormWindow::~FormWindow()
 {
+  if (status != THREAD_NOT_START) {
+    status = THREAD_FINISHED;
+    while (status != THREAD_NOT_START) {
+    
+    }
+  }
   delete ui;
 }
 
@@ -76,11 +127,10 @@ void FormWindow::beginCheck(check_function &process, check_print &summary)
 {
   //加载表单和payload
   loadForm();
-  QString filename = QFileDialog::getOpenFileName(nullptr, "选择使用的payload", "./", "payload (*.txt);;all(*.*)");
-  loadPayloads(filename);
+  loadPayloads(ui->label_selected_payload->text());
   //输出一些信息
   std::stringstream ssm;
-  ssm << "使用的payload=" << filename.toStdString() << '\n'
+  ssm << "使用的payload=" << ui->label_selected_payload->text().toStdString() << '\n'
       << std::format("构造表单中...\n基础表单结构:\n{}被用于注入的参数是:", this->form.tostring());
   for (const auto &it: will_be_injected) {
     ssm << args[it].first->text().toStdString() << ',';
@@ -94,6 +144,11 @@ void FormWindow::beginCheck(check_function &process, check_print &summary)
     int64_t i = 0, payloads_size = payloads.size();
     QString raw = QString::fromStdString(request(temp_form));
     for (; i < payloads_size; ++i) {
+      if (status == THREAD_FINISHED) {
+        status = THREAD_NOT_START;
+        emit scanFinished();
+        return;
+      }
       ++sum;
       //填充payload,被置空的参数都将填入payload
       for (const auto &it: will_be_injected) {
@@ -116,18 +171,18 @@ void FormWindow::beginCheck(check_function &process, check_print &summary)
         summary(payloads.back());
       }
     }
+    emit scanFinished();
+    status = THREAD_NOT_START;
   }).detach();
 }
 
 void FormWindow::onBtnXssCheckClicked()
 {
-  success = 0, sum = 0;
   auto check_function = [this](const QString &payload, const QString &response, const QString &raw) {
     size_t raw_count, response_count;
     raw_count = raw.count(payload);
     response_count = response.count(payload);
     emit messageAdd(std::format("是否回显 : {}", raw_count < response_count).c_str());
-    ++sum;
     if (response_count > raw_count) {
       ++success;
     }
@@ -190,7 +245,7 @@ void FormWindow::onBtnSqlCheckClicked()
       return true;
     }
   };
-  check_print cp = [this](const QString &payload){
+  check_print cp = [this](const QString &payload) {
     if (success > 0) {
       emit messageAdd("存在sql注入漏洞,payload=" + payload);
     } else {
@@ -211,3 +266,4 @@ void FormWindow::loadPayloads(const QString &filename)
     payloads.push_back(qts.readLine());
   file.close();
 }
+

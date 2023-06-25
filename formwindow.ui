@@ -111,23 +111,7 @@
       </widget>
      </item>
      <item row="1" column="0" colspan="2">
-      <widget class="QComboBox" name="comboBox">
-       <item>
-        <property name="text">
-         <string>xss</string>
-        </property>
-       </item>
-       <item>
-        <property name="text">
-         <string>暴力破解</string>
-        </property>
-       </item>
-       <item>
-        <property name="text">
-         <string>sql注入</string>
-        </property>
-       </item>
-      </widget>
+      <widget class="QComboBox" name="comboBox"/>
      </item>
     </layout>
    </item>
@@ -137,73 +121,5 @@
   </layout>
  </widget>
  <resources/>
- <connections>
-  <connection>
-   <sender>btn_start</sender>
-   <signal>clicked(bool)</signal>
-   <receiver>btn_start</receiver>
-   <slot>setEnabled(bool)</slot>
-   <hints>
-    <hint type="sourcelabel">
-     <x>96</x>
-     <y>303</y>
-    </hint>
-    <hint type="destinationlabel">
-     <x>96</x>
-     <y>303</y>
-    </hint>
-   </hints>
-  </connection>
-  <connection>
-   <sender>btn_stop</sender>
-   <signal>clicked(bool)</signal>
-   <receiver>btn_stop</receiver>
-   <slot>setEnabled(bool)</slot>
-   <hints>
-    <hint type="sourcelabel">
-     <x>275</x>
-     <y>303</y>
-    </hint>
-    <hint type="destinationlabel">
-     <x>275</x>
-     <y>303</y>
-    </hint>
-   </hints>
-  </connection>
-  <connection>
-   <sender>btn_start</sender>
-   <signal>clicked(bool)</signal>
-   <receiver>btn_stop</receiver>
-   <slot>setDisabled(bool)</slot>
-   <hints>
-    <hint type="sourcelabel">
-     <x>96</x>
-     <y>303</y>
-    </hint>
-    <hint type="destinationlabel">
-     <x>275</x>
-     <y>303</y>
-    </hint>
-   </hints>
-  </connection>
-  <connection>
-   <sender>btn_stop</sender>
-   <signal>clicked(bool)</signal>
-   <receiver>btn_start</receiver>
-   <slot>setDisabled(bool)</slot>
-   <hints>
-    <hint type="sourcelabel">
-     <x>275</x>
-     <y>303</y>
-    </hint>
-    <hint type="destinationlabel">
-     <x>96</x>
-     <y>303</y>
-    </hint>
-   </hints>
-  </connection>
- </connections>
- <buttongroups>
-  <buttongroup name="check_select_group"/>
- </buttongroups>
+ <connections/>
 </ui>

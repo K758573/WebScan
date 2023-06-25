@@ -42,29 +42,39 @@ public slots:
 
 
 private:
+  //页面的任务状态
+  enum THREAD_STATUS
+  {
+    THREAD_NOT_START, //线程未开始
+    THREAD_FINISHED, //线程正常结束
+    THREAD_STOP,  //终止线程
+    THREAD_STOPPED, //线程被终止
+    THREAD_RUNNING,//线程运行中
+  };
+  //检测函数，三个参数为payload，payload响应界面response，默认payload响应界面，返回true表示继续检测
+  using check_function = const std::function<bool(const QString &, const QString &, const QString &)>;
+  //检测总结函数，参数为最后一次使用的payload
+  using check_print = const std::function<void(const QString &)>;
+  
   //从输入中读取表单，更新表单结构
   void loadForm();
   
   void loadPayloads(const QString &filename);
-  //检测函数，三个参数为payload，payload响应界面response，默认payload响应界面，返回true表示继续检测
-  using check_function = const std::function<bool(const QString &, const QString &,const QString &)>;
-  //检测总结函数，参数为最后一次使用的payload
-  using check_print = const std::function<void(const QString &)>;
   
-  void beginCheck(check_function& process = nullptr, check_print& summary = nullptr);
+  
+  void beginCheck(check_function &process = nullptr, check_print &summary = nullptr);
 
+  
 signals:
-  
   void messageAdd(const QString &msg);
-
+  
+  void scanFinished();
 private:
   Ui::FormWindow *ui;
 public:
   ~FormWindow() override;
 
 private:
-  //  QVector<QLabel *> arg_names;
-  //  QVector<QLineEdit *> arg_values;
   QVector<QPair<QLabel *, QLineEdit *>> args;
   QVector<uint8_t> will_be_injected;
   const QVector<Form> *forms;
@@ -73,7 +83,7 @@ private:
   HttpRequest &request;
   std::thread dd;
   int64_t success = 0, sum = 0;
-  
+  THREAD_STATUS status = THREAD_NOT_START;
 };
 
 
