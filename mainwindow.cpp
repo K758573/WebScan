@@ -10,6 +10,7 @@
 #include <QWebEngineProfile>
 #include <QWebEngineCookieStore>
 #include <algorithm>
+#include <QMessageBox>
 
 const auto HTTP_LINK_PREFIX = "http://";
 const auto HTTPS_LINK_PREFIX = "https://";
@@ -22,7 +23,7 @@ const auto HTTPS_LINK_PREFIX = "https://";
 void correctFormAction(const QString &url, QVector<Form> &forms);
 
 MainWindow::MainWindow(QWidget *parent) :
-    QMainWindow(parent), ui(new Ui::MainWindow),form_window(nullptr)
+    QMainWindow(parent), ui(new Ui::MainWindow), form_window(nullptr)
 {
   ui->setupUi(this);
   //输入链接，点击抓取，提取网页的url，保存到url_page中，url_page中保存的是完整的地址
@@ -31,6 +32,9 @@ MainWindow::MainWindow(QWidget *parent) :
   connect(ui->tree_url_list, &QTreeView::clicked, this, &MainWindow::onTreeUrlListClicked);
   //点击提取表单，弹出表单窗口
   connect(ui->act_extract_form, &QAction::triggered, this, &MainWindow::onActionExtractForm);
+  connect(ui->act_csrf_check, &QAction::triggered, this, &MainWindow::onActCsrfCheck);
+  connect(ui->act_fish_check, &QAction::triggered, this, &MainWindow::onActFishCheck);
+  
   connect(ui->browser_page->page()->profile()->cookieStore(),
           &QWebEngineCookieStore::cookieAdded,
           this,
@@ -99,7 +103,8 @@ void MainWindow::onTreeUrlListClicked(QModelIndex index)
   if (url_pages[url] == QString()) {
     url_pages[url] = QString::fromStdString(request(url.toStdString()));
   }
-  ui->browser_page->setHtml(url_pages[url], root_url);
+  //  ui->browser_page->load(url);
+  ui->browser_page->setHtml(url_pages[url], url);
   ui->statusbar->showMessage(url);
 }
 
@@ -124,6 +129,34 @@ void MainWindow::onActionExtractForm()
   emit sendFormData(url_forms[url]);
 }
 
+void MainWindow::onActCsrfCheck()
+{
+  //使用js代码提取表单
+  ui->browser_page->page()->toHtml([](const QString &response) {
+    auto ret = HtmlUtils::extractForms(response.toStdString());
+    if (ret.empty()) {
+      QMessageBox::information(nullptr, "csrf检测结果", "该站点无表单，难以进行csrf攻击");
+      return;
+    }
+    bool success = false;
+    QString msg = "站点表单\n";
+    for (const auto &item: ret) {
+      for (const auto &it: item.args) {
+        msg.append(it.first.c_str()).append("=").append(it.second.c_str()).push_back('\n');
+        if (it.first == "token") {
+          success = true;
+        }
+      }
+    }
+    if (success) {
+      msg.append("表单字段包含token，存在服务器的验证，该站点难以进行csrf攻击");
+    } else {
+      msg.append("表单字段不含token类型的验证字段，表单数据易被伪造，该站点存在csrf漏洞");
+    }
+    QMessageBox::information(nullptr, "csrf检测结果", msg);
+  });
+}
+
 void correctFormAction(const QString &url, QVector<Form> &forms)
 {
   for (auto &form: forms) {
@@ -144,5 +177,35 @@ void correctFormAction(const QString &url, QVector<Form> &forms)
       url_x.erase(pos + 1);
     }
     form.action = url_x + form.action;
+  }
+}
+
+void MainWindow::onActFishCheck()
+{
+  auto url = ui->tree_url_list->currentIndex().data().toString();
+  if (url_pages[url] == QString()) {
+    url_pages[url] = QString::fromStdString(request(url.toStdString()));
+  }
+  //
+  QString msg("该页面包含 ");
+  bool fish = false;
+  if (url_pages[url].contains("银行卡号")) {
+    fish = true;
+    msg.append("银行卡号 ");
+  }
+  if (url_pages[url].contains("账号")) {
+    fish = true;
+    msg.append("账号 ");
+  }
+  if (url_pages[url].contains("密码")) {
+    fish = true;
+    msg.append("密码 ");
+  }
+  msg.append("等敏感信息\n");
+  msg.append("站点可能是钓鱼网站，请注意!!!");
+  if (fish) {
+    QMessageBox::warning(nullptr, "钓鱼检测", msg);
+  } else {
+    QMessageBox::information(nullptr, "钓鱼检测", "站点没有敏感信息的输入，是安全的");
   }
 }

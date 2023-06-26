@@ -126,10 +126,25 @@
     <bool>false</bool>
    </attribute>
    <addaction name="act_extract_form"/>
+   <addaction name="act_csrf_check"/>
+   <addaction name="act_fish_check"/>
   </widget>
   <action name="act_extract_form">
    <property name="text">
     <string>提取表单</string>
+   </property>
+  </action>
+  <action name="act_fish_check">
+   <property name="text">
+    <string>钓鱼检测</string>
+   </property>
+  </action>
+  <action name="act_csrf_check">
+   <property name="text">
+    <string>CSRF检测</string>
+   </property>
+   <property name="toolTip">
+    <string>CSRF检测</string>
    </property>
   </action>
  </widget>

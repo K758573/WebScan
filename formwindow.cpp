@@ -19,7 +19,7 @@
 
 enum ScanType
 {
-  SCAN_TYPE_XSS = 1, SCAN_TYPE_BF = 2, SCAN_TYPE_SQL = 3,
+  SCAN_TYPE_XSS, SCAN_TYPE_BF, SCAN_TYPE_SQL, SCAN_TYPE_RCE, SCAN_TYPE_FILE_INCLUSION,
 };
 
 
@@ -27,9 +27,11 @@ FormWindow::FormWindow(QWidget *parent, HttpRequest &request) :
     QWidget(parent), ui(new Ui::FormWindow), forms(nullptr), request(request)
 {
   ui->setupUi(this);
-  ui->comboBox->addItem("xss", ScanType::SCAN_TYPE_XSS);
+  ui->comboBox->addItem("xss检测", ScanType::SCAN_TYPE_XSS);
   ui->comboBox->addItem("暴力破解", ScanType::SCAN_TYPE_BF);
   ui->comboBox->addItem("sql注入", ScanType::SCAN_TYPE_SQL);
+  ui->comboBox->addItem("rce检测", ScanType::SCAN_TYPE_RCE);
+  ui->comboBox->addItem("文件包含", ScanType::SCAN_TYPE_FILE_INCLUSION);
   ui->comboBox->setCurrentIndex(0);
   //  this->setAttribute(Qt::WA_DeleteOnClose);
   connect(ui->btn_send_form, &QPushButton::clicked, this, &FormWindow::onBtnSendFormClicked);
@@ -69,16 +71,23 @@ void FormWindow::onBtnStart()
   auto st = ui->comboBox->currentData().value<ScanType>();
   switch (st) {
     case SCAN_TYPE_XSS:
-      onBtnXssCheckClicked();
+      xssCheck();
       break;
     case SCAN_TYPE_BF:
-      onBtnBfCheckClicked();
+      bfCheck();
       break;
     case SCAN_TYPE_SQL:
-      onBtnSqlCheckClicked();
+      sqlCheck();
+      break;
+    case SCAN_TYPE_RCE:
+      rceCheck();
+      break;
+    case SCAN_TYPE_FILE_INCLUSION:
+      fileInclusionCheck();
       break;
   }
 }
+
 
 void FormWindow::onBtnSelectPayload()
 {
@@ -171,6 +180,12 @@ void FormWindow::beginCheck(check_function &process, check_print &summary)
       //发送请求
       emit messageAdd(std::format("使用的payload={}", payloads[i].toStdString()).c_str());
       QString response = QString::fromStdString(request(temp_form));
+      //查看参数是否含有token，自动更新
+      if (temp_form.args.contains("token")) {
+        //服务器返回了新的token，下一次请求需要使用
+        auto token = HtmlUtils::extractToken(response.toStdString());
+        temp_form.args["token"] = token;
+      }
       //根据使用的payload和响应结果，调用检测函数
       if (!process(payloads[i], response, raw)) {
         //返回false，结束检测
@@ -190,7 +205,7 @@ void FormWindow::beginCheck(check_function &process, check_print &summary)
   }).detach();
 }
 
-void FormWindow::onBtnXssCheckClicked()
+void FormWindow::xssCheck()
 {
   auto check_function = [this](const QString &payload, const QString &response, const QString &raw) {
     size_t raw_count, response_count;
@@ -230,7 +245,7 @@ void FormWindow::loadForm()
   
 }
 
-void FormWindow::onBtnBfCheckClicked()
+void FormWindow::bfCheck()
 {
   beginCheck([this](const auto &payload, const auto &response, const QString &raw) {
     if (response.count("login success") > 0) {
@@ -249,7 +264,7 @@ void FormWindow::onBtnBfCheckClicked()
   });
 }
 
-void FormWindow::onBtnSqlCheckClicked()
+void FormWindow::sqlCheck()
 {
   check_function cf = [this](const QString &payload, const QString &response, const QString &raw) -> bool {
     if (response.count("You have an error in your SQL syntax") > 0) {
@@ -281,3 +296,40 @@ void FormWindow::loadPayloads(const QString &filename)
   file.close();
 }
 
+void FormWindow::rceCheck()
+{
+  check_function cf = [this](const QString &payload, const QString &response, const QString &raw) -> bool {
+    if (response.count("special string hello world") > 0) {
+      ++success;
+      emit messageAdd(std::format("rce是否回显:{}", true).c_str());
+    }
+    return true;
+  };
+  check_print cp = [this](const QString &payload) {
+    if (success > 0) {
+      emit messageAdd("存在rce漏洞");
+    } else {
+      emit messageAdd("未发现rce漏洞");
+    }
+  };
+  beginCheck(cf, cp);
+}
+
+void FormWindow::fileInclusionCheck()
+{
+  check_function cf = [this](const QString &payload, const QString &response, const QString &raw) -> bool {
+    if (response.contains("failed to open stream: Permission denied in")) {
+      ++success;
+      emit messageAdd(std::format("文件包含是否回显:{}", true).c_str());
+    }
+    return true;
+  };
+  check_print cp = [this](const QString &payload) {
+    if (success > 0) {
+      emit messageAdd("存在文件包含漏洞");
+    } else {
+      emit messageAdd("未发现文件包含漏洞");
+    }
+  };
+  beginCheck(cf, cp);
+}

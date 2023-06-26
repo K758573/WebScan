@@ -43,6 +43,10 @@ private slots:
    * 点击提取表单，生成一个提取表单的界面，刷新当前界面，提取cookie
    */
   void onActionExtractForm();
+  
+  void onActCsrfCheck();
+  //检测当前页面是否让用户输入敏感信息
+  void onActFishCheck();
 
 private:
   Ui::MainWindow *ui;

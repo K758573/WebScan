@@ -189,4 +189,17 @@ std::vector<Form> HtmlUtils::extractForms(const std::string &html)
   extractFormNodes(output->root, forms);
   return forms;
 }
+
+std::string HtmlUtils::extractToken(const std::string &html)
+{
+  auto forms = extractForms(html);
+  if (forms.empty()) {
+    return "";
+  }
+  auto it = forms.front().args.find("token");
+  if (it == forms.front().args.end()) {
+    return "";
+  }
+  return it->second;
+}
 } // WebScan

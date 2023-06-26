@@ -30,6 +30,13 @@ class HtmlUtils
    * @return 提取出的表单数组
    */
   static std::vector<Form> extractForms(const std::string &html);
+  
+  /**
+   * 提取页面中的token值
+   * @param html
+   * @return
+   */
+  static std::string extractToken(const std::string &html);
 };
 
 /**
