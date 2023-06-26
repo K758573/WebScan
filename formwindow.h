@@ -93,6 +93,8 @@ private:
   Ui::FormWindow *ui;
 public:
   ~FormWindow() override;
+  
+  void sqlTimeCheck();
 };
 
 

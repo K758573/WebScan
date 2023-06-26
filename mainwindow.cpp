@@ -92,6 +92,8 @@ void MainWindow::onButtonGetUrlListClicked()
     model->item(0, 0)->setChild(i, temp_list[i]);
   }
   ui->tree_url_list->expandAll();
+  ui->tree_url_list->setCurrentIndex(it->index());
+  onTreeUrlListClicked(it->index());
 }
 
 //点击url，更新页面
@@ -110,6 +112,10 @@ void MainWindow::onTreeUrlListClicked(QModelIndex index)
 
 void MainWindow::onActionExtractForm()
 {
+  if (!ui->tree_url_list->currentIndex().isValid()) {
+    QMessageBox::information(nullptr, "提示", "还没有选择页面");
+    return;
+  }
   if (form_window != nullptr) {
     delete form_window;
     form_window = nullptr;
@@ -131,6 +137,10 @@ void MainWindow::onActionExtractForm()
 
 void MainWindow::onActCsrfCheck()
 {
+  if (!ui->tree_url_list->currentIndex().isValid()) {
+    QMessageBox::information(nullptr, "提示", "还没有选择页面");
+    return;
+  }
   //使用js代码提取表单
   ui->browser_page->page()->toHtml([](const QString &response) {
     auto ret = HtmlUtils::extractForms(response.toStdString());
@@ -182,6 +192,10 @@ void correctFormAction(const QString &url, QVector<Form> &forms)
 
 void MainWindow::onActFishCheck()
 {
+  if (!ui->tree_url_list->currentIndex().isValid()) {
+    QMessageBox::information(nullptr, "提示", "还没有选择页面");
+    return;
+  }
   auto url = ui->tree_url_list->currentIndex().data().toString();
   if (url_pages[url] == QString()) {
     url_pages[url] = QString::fromStdString(request(url.toStdString()));

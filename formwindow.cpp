@@ -19,7 +19,13 @@
 
 enum ScanType
 {
-  SCAN_TYPE_XSS, SCAN_TYPE_BF, SCAN_TYPE_SQL, SCAN_TYPE_RCE, SCAN_TYPE_FILE_INCLUSION,
+  SCAN_TYPE_XSS,
+  SCAN_TYPE_BF,
+  SCAN_TYPE_SQL,
+  SCAN_TYPE_RCE,
+  SCAN_TYPE_FILE_INCLUSION,
+  SCAN_TYPE_SQL_TIME,
+  SCAN_TYPE_FORM_PASS,
 };
 
 
@@ -29,7 +35,9 @@ FormWindow::FormWindow(QWidget *parent, HttpRequest &request) :
   ui->setupUi(this);
   ui->comboBox->addItem("xss检测", ScanType::SCAN_TYPE_XSS);
   ui->comboBox->addItem("暴力破解", ScanType::SCAN_TYPE_BF);
+  ui->comboBox->addItem("表单绕过", ScanType::SCAN_TYPE_FORM_PASS);
   ui->comboBox->addItem("sql注入", ScanType::SCAN_TYPE_SQL);
+  ui->comboBox->addItem("时间盲注", ScanType::SCAN_TYPE_SQL_TIME);
   ui->comboBox->addItem("rce检测", ScanType::SCAN_TYPE_RCE);
   ui->comboBox->addItem("文件包含", ScanType::SCAN_TYPE_FILE_INCLUSION);
   ui->comboBox->setCurrentIndex(0);
@@ -84,6 +92,12 @@ void FormWindow::onBtnStart()
       break;
     case SCAN_TYPE_FILE_INCLUSION:
       fileInclusionCheck();
+      break;
+    case SCAN_TYPE_SQL_TIME:
+      sqlTimeCheck();
+      break;
+    case SCAN_TYPE_FORM_PASS:
+      onBtnSendFormClicked();
       break;
   }
 }
@@ -144,6 +158,7 @@ void FormWindow::onBtnSendFormClicked()
   loadForm();
   auto response = request(form);
   ui->form_response->setPlainText(QString::fromStdString(response));
+  emit scanFinished();
 }
 
 void FormWindow::beginCheck(check_function &process, check_print &summary)
@@ -329,6 +344,35 @@ void FormWindow::fileInclusionCheck()
       emit messageAdd("存在文件包含漏洞");
     } else {
       emit messageAdd("未发现文件包含漏洞");
+    }
+  };
+  beginCheck(cf, cp);
+}
+
+void FormWindow::sqlTimeCheck()
+{
+  auto last_time = std::chrono::system_clock::now();
+  check_function cf = [this, last_time](const QString &payload, const QString &response,
+                                        const QString &raw) mutable -> bool {
+    auto current_time = std::chrono::system_clock::now();
+    auto diff = current_time - last_time;
+    last_time = current_time;
+    QString msg("两次请求的间隔为" + QString::number(diff.count() / 10000000) + "秒");
+    if (diff.count() > 20000000 && diff.count() < 30000000) {
+      msg.append("注入成功");
+      emit messageAdd(msg);
+      ++success;
+      return false;
+    } else {
+      emit messageAdd(msg);
+      return true;
+    }
+  };
+  check_print cp = [this](const QString &payload) {
+    if (success > 0) {
+      emit messageAdd("存在sql时间盲注，payload=" + payload);
+    } else {
+      emit messageAdd("未发现sql注入漏洞");
     }
   };
   beginCheck(cf, cp);
